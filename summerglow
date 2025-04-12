@@ -1,0 +1,17 @@
+
+summerglow/
+├── .env.local
+├── next.config.js
+├── package.json
+├── pages/
+│   ├── index.js
+│   └── api/
+│       └── checkout.js
+├── public/
+├── styles/
+└── components/
+git clone https://github.com/ton-username/summerglow.git
+cd summerglow
+git add .
+git commit -m "Initial commit de SummerGlow 🌞"
+git push origin main
