@@ -1,17 +1,156 @@
 
-summerglow/
-├── .env.local
-├── next.config.js
-├── package.json
-├── pages/
-│   ├── index.js
-│   └── api/
-│       └── checkout.js
-├── public/
-├── styles/
-└── components/
-git clone https://github.com/ton-username/summerglow.git
-cd summerglow
-git add .
-git commit -m "Initial commit de SummerGlow 🌞"
-git push origin main
+import React, { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ShoppingCart } from "lucide-react";
+
+const products = [
+  {
+    id: 1,
+    name: "Ventilateur Portable Rechargeable",
+    description:
+      "Reste au frais partout cet été avec ce ventilateur de poche silencieux et puissant. Autonomie jusqu'à 10h, se recharge en USB.",
+    price: 29.9,
+    image:
+      "https://cdn.shopify.com/s/files/1/0600/1234/5678/products/ventilateur-portable.jpg?v=1620000000",
+  },
+  {
+    id: 2,
+    name: "Tapis de Plage Anti-Sable",
+    description:
+      "Profite de la plage sans ramener de sable à la maison. Léger, imperméable, facile à plier.",
+    price: 24.9,
+    image:
+      "https://cdn.shopify.com/s/files/1/0600/1234/5678/products/tapis-anti-sable.jpg?v=1620000000",
+  },
+];
+
+export default function SummerGlow() {
+  const [cart, setCart] = useState([]);
+  const [checkout, setCheckout] = useState(false);
+
+  const addToCart = (product) => {
+    setCart((prevCart) => [...prevCart, product]);
+  };
+
+  const total = cart.reduce((sum, item) => sum + item.price, 0).toFixed(2);
+
+  const redirectToStripe = async () => {
+    const response = await fetch("/api/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: cart }),
+    });
+    const data = await response.json();
+    if (data.url) {
+      window.location.href = data.url;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-yellow-100 to-orange-200 p-6">
+      <header className="text-center mb-10">
+        <h1 className="text-4xl font-bold text-orange-600 mb-2">☀️ SummerGlow</h1>
+        <p className="text-lg text-gray-700">
+          Les indispensables de l'été livrés chez toi 🌴
+        </p>
+      </header>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-5xl mx-auto">
+        {products.map((product) => (
+          <Card key={product.id} className="rounded-2xl shadow-xl">
+            <img
+              src={product.image}
+              alt={product.name}
+              className="w-full h-64 object-cover rounded-t-2xl"
+            />
+            <CardContent className="p-4 space-y-3">
+              <h2 className="text-xl font-semibold text-gray-800">
+                {product.name}
+              </h2>
+              <p className="text-gray-600 text-sm">{product.description}</p>
+              <div className="flex items-center justify-between mt-4">
+                <span className="text-lg font-bold text-orange-500">
+                  {product.price.toFixed(2)}€
+                </span>
+                <Button
+                  onClick={() => addToCart(product)}
+                  className="flex gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+                >
+                  <ShoppingCart size={18} /> Ajouter
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="max-w-xl mx-auto mt-12 p-6 bg-white rounded-2xl shadow-md">
+        <h3 className="text-2xl font-bold mb-4 text-orange-600">🛒 Panier</h3>
+        {cart.length === 0 ? (
+          <p className="text-gray-500">Votre panier est vide.</p>
+        ) : (
+          <ul className="space-y-2">
+            {cart.map((item, index) => (
+              <li key={index} className="flex justify-between text-gray-700">
+                <span>{item.name}</span>
+                <span>{item.price.toFixed(2)}€</span>
+              </li>
+            ))}
+            <li className="border-t pt-2 flex justify-between font-bold">
+              <span>Total</span>
+              <span>{total}€</span>
+            </li>
+          </ul>
+        )}
+        <Button
+          onClick={redirectToStripe}
+          className="mt-4 w-full bg-green-500 hover:bg-green-600 text-white"
+        >
+          Paiement sécurisé
+        </Button>
+      </div>
+
+      <footer className="mt-20 text-center text-sm text-gray-500">
+        © 2025 SummerGlow. Tous droits réservés.
+      </footer>
+    </div>
+  );
+}// Backend API pour Stripe Checkout
+// À placer dans /pages/api/checkout.js pour Next.js
+
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).end('Méthode non autorisée');
+  }
+
+  const items = req.body.items;
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: items.map((item) => ({
+        price_data: {
+          currency: 'eur',
+          product_data: {
+            name: item.name,
+          },
+          unit_amount: Math.round(item.price * 100),
+        },
+        quantity: 1,
+      })),
+      mode: 'payment',
+      success_url: 'https://summerglow.vercel.app/success',
+      cancel_url: 'https://summerglow.vercel.app/cancel',
+    });
+
+    res.status(200).json({ url: session.url });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur lors de la création de la session Stripe' });
+  }
+}
